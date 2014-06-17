@@ -1,53 +1,60 @@
-#![crate_id = "hello"]
+#![crate_id = "sendfile"]
 #![deny(missing_doc)]
 #![feature(phase)]
+#![feature(overloaded_calls)]
 
-//! A simple ingot to serve "Hello, world!" to all requests.
+//! File-serving ingot for Iron
 
 extern crate iron;
 extern crate http;
 #[phase(plugin, link)]
 extern crate log;
 
+use std::ops::Fn;
+use std::io::IoResult;
+
 use iron::{Ingot, Alloy, Request, Response};
 use iron::ingot::{Status, Continue};
 
 use http::status;
 
-/// The hello `Ingot`.
+/// The SendFile `Ingot`.
 #[deriving(Clone)]
-pub struct HelloWorld;
+pub struct SendFile {
+    path: Option<Path>
+}
 
-impl HelloWorld {
-    /// Create a new instance of the hello `Ingot`.
-    pub fn new() -> HelloWorld {
-        HelloWorld
+impl SendFile {
+    /// Create a new instance of the SendFile `Ingot`.
+    pub fn new() -> SendFile {
+        SendFile {
+            path: None
+        }
+    }
+
+    /// Specify the path to serve.
+    pub fn path(&mut self, path: Path) -> Result<(), status::Status> {
+        // Check for existence (fs::stat)
+        // And permissions (fs::stat)
+        // Before setting path
+        self.path = Some(path);
+        Ok(())
     }
 }
 
-impl<Rq: Request, Rs: Response> Ingot<Rq, Rs> for HelloWorld {
-    /// Serve "Hello, world!"
-    ///
-    /// In the case of an error, return a status of 500: InternalServerError
-    fn enter(&mut self, _req: &mut Rq, res: &mut Rs, _alloy: &mut Alloy) -> Status {
-        match res.write(bytes!("Hello, world!")) {
-            Ok(()) => (),
-            Err(_) => {
-                let status = res.status_mut();
-                *status = status::InternalServerError;
-            }
-        }
-        Continue
+impl Fn<(&'static mut Response,), IoResult<()>> for SendFile {
+    /// Serve from specified path.
+    fn call(&self, (_res,): (&mut Response,)) -> IoResult<()> {
+        // Check that path exists (path has already checked for permissions)
+        // Serve file
+        Ok(())
     }
+}
 
-    /// Debug what you did.
-    ///
-    /// Prints `Served "Hello, World".` if RUST_LOG is set to 4.
-    /// This function does not need to be implemented (neither does `enter`).
-    /// `Ingot` implements a default function which does nothing.
-    /// It is implemented for the sake of example.
-    fn exit(&mut self, _req: &mut Rq, _res: &mut Rs, _alloy: &mut Alloy) -> Status {
-        debug!("Served \"Hello, World\".");
+impl<'a, Rq: Request, Rs: Response> Ingot<Rq, Rs> for SendFile {
+    /// Add the SendFile to the alloy.
+    fn enter(&mut self, _req: &mut Rq, _res: &mut Rs, alloy: &mut Alloy) -> Status {
+        alloy.insert::<SendFile>(self.clone());
         Continue
     }
 }
