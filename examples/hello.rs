@@ -27,7 +27,7 @@ impl<Rq: Request, Rs: Response> Ingot<Rq, Rs> for HelloWorld {
     fn enter(&mut self, _req: &mut Rq, res: &mut Rs, alloy: &mut Alloy) -> Status {
         let send_file = alloy.find_mut::<SendFile>().unwrap();
         send_file.path(Path::new("/hello.html"));
-        (*send_file)(res as &mut Response);
+        (*send_file)(res);
         Continue
     }
 }
